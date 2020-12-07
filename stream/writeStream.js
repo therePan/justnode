@@ -33,10 +33,10 @@ class WriteStream extends EventEmitter {
   }
 
   write(chunk, encoding, cb) {
+    chunk = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, this.encoding)
     let len = chunk.length
     //缓存区的长度加上当前写入的长度
     this.length += len;
-    chunk = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, this.encoding)
     if (this.writing) { //表示正在底层写数据，则当前数据必须放到缓存区里
       this.buffers.push({
         chunk,
@@ -51,6 +51,7 @@ class WriteStream extends EventEmitter {
       //在底层写完后要清空缓存区
       this._write(chunk, encoding, () => this.clearBuffer()) //
     }
+    //判断当前缓存区是否小于最高水位线
     let ret = this.length < this.highWaterMark
     return ret
   }
@@ -70,7 +71,7 @@ class WriteStream extends EventEmitter {
       }
       this.pos += byteWritten
       //写入多少字节缓存区减少多少字节
-      this.length -= byteWritten
+      this.length -= byteWritten 
       cb & cb()
     })
   }
