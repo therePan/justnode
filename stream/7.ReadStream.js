@@ -14,6 +14,7 @@ class ReadStream extends EventEmitter {
     this.end = options.end
     this.pos = this.start
 
+    this.flowing = true
     this.buffer = Buffer.alloc(this.highWaterMark)
     this.open()
 
@@ -39,7 +40,7 @@ class ReadStream extends EventEmitter {
   }
 
   read() {
-    if (!this.fd) {
+    if (typeof this.fd !== 'number') {
       return this.once('open', () => this.read())
     }
     const howMuchToRead = Math.min(this.end - this.pos + 1, this.highWaterMark)
@@ -58,7 +59,9 @@ class ReadStream extends EventEmitter {
           if (this.end && this.pos > this.end) {
             return this.endFn()
           } else {
-            this.read()
+            if (this.flowing) {
+              this.read()
+            }
           }
         } else {
           return this.endFn()
@@ -78,6 +81,27 @@ class ReadStream extends EventEmitter {
     })
   }
 
+  pipe(desc) {
+    let flag = true
+    this.on('data', (data) => {
+      let flag = desc.write(data)
+      if (!flag) {
+        this.pause()
+      }
+      desc.on('drain', () => {
+        this.resume()
+      })
+    })
+  }
+
+  pause() {
+    this.flowing = false
+  }
+
+  resume() {
+    this.flowing = true
+    this.read()
+  }
 }
 
 module.exports = ReadStream
